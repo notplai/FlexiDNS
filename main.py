@@ -89,6 +89,7 @@ class AsynchronousPeriodic:
     integrate = 'AsynchronousPeriodic'
     def __init__(self: Self) -> None:
         self.sync_logger = Logger(self.integrate)
+        self.__hl = False
 
     async def sync(self: Self) -> int:
         """Run the asynchronous loop with exponential backoff on error."""
@@ -105,8 +106,7 @@ class AsynchronousPeriodic:
                     elif isinstance(ipify_response, str):
                         inet_address = [ipify_response]
                     else:
-                        raise ValueError("Unexpected response type from ipify API")
-                    
+                        raise ValueError("Unexpected response type from ipify API")  
                 elif queryAPI == 'icanhazip':
                     inet_address = [icanhazip().get().replace('\n', '').strip()]
                 elif queryAPI.split('?')[0] == 'ifconfig':
@@ -121,6 +121,7 @@ class AsynchronousPeriodic:
                         inet_address = [ip.strip() for ip in ip_addr.split(',')] if ',' in ip_addr else [ip_addr]
                     else:
                         inet_address = []
+                
                 else:
                     raise ValueError(f"Unsupported queryAPI: {queryAPI}. Supported APIs are 'ipify', 'icanzip' and 'ifconfig'.")
                 
@@ -138,12 +139,14 @@ class AsynchronousPeriodic:
                     with open('.dumps/found_address', 'r') as f:
                         found_address: dict[str, Any] = json.load(f)
                         if found_address == inet_address_object:
-                            self.sync_logger.log("Public address is same as before, skipping update")
+                            if not self.__hl:
+                                self.sync_logger.log("Public address is same as before, skipping update")
+                                self.__hl = True
                             return total_seconds or 0
                         f.close()
                         raise TimeoutError("Public address timed out")
                 except Exception as e:
-
+                    self.__hl = False
                     if isinstance(e, (FileNotFoundError, TimeoutError)):
                         with open('.dumps/found_address', 'w') as f:
                             json.dump(inet_address_object, f, indent=4)
@@ -163,11 +166,11 @@ class AsynchronousPeriodic:
                                 APIs[object_name],
                                 ObjectFQDNs[object_name][record],
                                 inet_address_object[ip_ver]
-                            ))
-
+                            ))      
                 if tasks:
                     await asyncio.gather(*tasks)
                 return total_seconds
+
             except Exception as e:
                 self.sync_logger.exception(e)
                 if timeshift:
@@ -176,9 +179,8 @@ class AsynchronousPeriodic:
                     await asyncio.sleep(total_seconds)
                     continue
                 else:
-                    break
-        return total_seconds
-
+                    return total_seconds
+        
     async def interval(self: Self, sync_time: Union[float, int]) -> NoReturn:
         self.sync_logger.log(f"Starting periodic DNS updates every {sync_time} seconds ({sync_time//60}m).")
         
@@ -186,10 +188,10 @@ class AsynchronousPeriodic:
             start_time = asyncio.get_event_loop().time()
             await self.sync()
             elapsed_time = asyncio.get_event_loop().time() - start_time
-            sync_time = max(0, sync_time - elapsed_time)
+            delta_time = max(0, sync_time - elapsed_time)
 
-            self.sync_logger.log(f"Cycle completed in {elapsed_time:.2f}s. Sleeping for {sync_time:.2f}s.")
-            await asyncio.sleep(sync_time)
+            self.sync_logger.log(f"Cycle completed in {elapsed_time:.2f}s. Sleeping for {delta_time:.2f}s.")
+            await asyncio.sleep(delta_time)
 
     async def unix(self: Self, unix_time: float | int) -> NoReturn:
         unixl = unixConvert(unix_time)

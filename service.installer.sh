@@ -60,7 +60,6 @@ if [[ "$OVERWRITE" =~ ^[Yy]$ ]]; then
     cat <<EOF > "$TEMP_SERVICE"
 [Unit]
 Description=Universal Dynamic Internet Protocol Resolver Service
-Documentation=
 After=network-online.target
 Wants=network-online.target
 
