@@ -1,0 +1,9 @@
+# generated files
+/target
+/.dumps
+/services
+/templates
+
+# environment variables and configuration files
+.env
+/config.yml
