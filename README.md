@@ -25,7 +25,7 @@ Rust-native dynamic DNS and network management API. Resolves your public IP and 
 ## Installation
 
 ```bash
-git clone https://github.com/dotplai/MeshOps.git
+git clone https://github.com/notplai/MeshOps.git
 cd MeshOps
 cargo build --release
 ```
